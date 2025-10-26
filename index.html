@@ -332,39 +332,135 @@
                     
                         <h4>Exemplo de JSON Body (Estrutura Resumida)</h4>
                         <div class="code-block">
-<pre><code>{
+<pre><code>
+{
   "elementos": [
     {
       "add_capa": {
-        "instituicao": "Minha Empresa",
-        "autor": "Relatórios API",
-        "titulo": "Relatório Técnico"
+        "instituicao": "Universidade JSON / Minha Empresa",
+        "autor": "Orquestrador de Relatórios",
+        "titulo": "Relatório Técnico Gerado por Orquestrador JSON",
+        "cidade": "São Paulo",
+        "ano": "2025"
       }
     },
-    { "secao": "Introdução" },
-    { "paragrafo": "Texto do parágrafo aqui..." },
-    { "subsecao": "Análise de Dados" },
-    { "legenda_tabela": "Legenda da Tabela." },
+    {
+      "secao": "Introdução"
+    },
+    {
+      "paragrafo": "Este relatório foi gerado dinamicamente a partir de uma estrutura JSON. Uma função orquestradora lê o JSON e chama os métodos correspondentes da classe ReportGeneratorABNT. A ordem dos elementos no JSON é crucial e preservada durante a geração."
+    },
+    {
+      "secao": "Demonstração de Elementos"
+    },
+    {
+      "subsecao": "Listas de Itens"
+    },
+    {
+      "paragrafo": "Abaixo, uma lista numerada de itens:"
+    },
+    {
+      "lista_numerada": [
+        "Primeiro item da lista numerada.",
+        "Segundo item.",
+        "Terceiro item."
+      ]
+    },
+    {
+      "paragrafo": "E agora, uma lista de marcadores (bullets):"
+    },
+    {
+      "lista_bullet": [
+        "Item com marcador.",
+        "Outro item com marcador.",
+        "Item final."
+      ]
+    },
+    {
+      "subsecao": "Tabelas e Dados"
+    },
+    {
+      "paragrafo": "Os dados para tabelas e gráficos são fornecidos como uma lista de objetos no JSON. A função orquestradora converte isso em um DataFrame do Pandas antes de passar para a classe."
+    },
+    {
+      "legenda_tabela": "Dados de vendas fictícias (Q4 2025)."
+    },
     {
       "tabela_pandas": {
         "data": [
-          {"Mês": "Outubro", "Vendas": 12000},
-          {"Mês": "Novembro", "Vendas": 15000}
-        ]
+          {"Mês": "Outubro", "Vendas (R$)": 12000, "Meta": 10000},
+          {"Mês": "Novembro", "Vendas (R$)": 15000, "Meta": 13000},
+          {"Mês": "Dezembro", "Vendas (R$)": 20000, "Meta": 18000}
+        ],
+        "colWidths_mm": [50, 50, 50]
       }
     },
-    { "legenda_figura": "Legenda da Figura." },
+    {
+      "subsecao": "Imagens e Gráficos"
+    },
+    {
+      "paragrafo": "Primeiro, uma imagem estática (logo) carregada do disco:"
+    },
+    {
+      "imagem": {
+        "caminho_imagem": "logo_exemplo.png",
+        "largura_mm": 60
+      }
+    },
+    {
+      "legenda_figura": "Logo de exemplo usado na demonstração."
+    },
+    {
+      "paragrafo": "Agora, um gráfico dinâmico gerado pelo Pandas/Matplotlib a partir dos mesmos dados da tabela:"
+    },
     {
       "grafico_pandas": {
-        "data": [...],
+        "data": [
+          {"Mês": "Outubro", "Vendas (R$)": 12000, "Meta": 10000},
+          {"Mês": "Novembro", "Vendas (R$)": 15000, "Meta": 13000},
+          {"Mês": "Dezembro", "Vendas (R$)": 20000, "Meta": 18000}
+        ],
         "x_col": "Mês",
-        "y_col": "Vendas",
-        "tipo_grafico": "bar"
+        "y_col": "Vendas (R$)",
+        "titulo_grafico": "Vendas Mensais (Q4)",
+        "tipo_grafico": "bar",
+        "largura_mm": 150,
+        "altura_mm": 90
       }
     },
-    { "nova_pagina": null },
-    { "secao": "Conclusão" },
-    { "paragrafo": "Texto da conclusão." }
+    {
+      "legenda_figura": "Gráfico de barras das vendas do Q4."
+    },
+    {
+      "nova_pagina": null
+    },
+    {
+      "secao": "Elementos Técnicos"
+    },
+    {
+      "subsecao": "Bloco de Código"
+    },
+    {
+      "bloco_codigo": "def orquestrar_relatorio(json_data, nome_arquivo_saida):\n    report = ReportGeneratorABNT(nome_arquivo_saida)\n    \n    for elemento in json_data.get('elementos', []):\n        # ... lógica de processamento ...\n    \n    report.gerar_pdf()"
+    },
+    {
+      "subsecao": "Espaçamento"
+    },
+    {
+      "paragrafo": "Este é um texto antes de um espaço vertical."
+    },
+    {
+      "espaco": 15
+    },
+    {
+      "paragrafo": "Este é um texto 15mm após o espaço."
+    },
+    {
+      "secao": "Conclusão"
+    },
+    {
+      "paragrafo": "O orquestrador processou todos os tipos de elementos com sucesso, demonstrando a flexibilidade da abordagem."
+    }
   ]
 }</code></pre>
                         </div>
