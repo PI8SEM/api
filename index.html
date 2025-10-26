@@ -262,8 +262,18 @@
                         <span class="path">/relatorio</span>
                     </div>
                     <p class="description">
-                        Gera e disponibiliza para download um relatório em PDF (simples) com base nos últimos dados de telemetria recebidos.
+                        Busca e disponibiliza para download um relatório PDF <strong>pré-existente</strong> da pasta 'reports' no servidor, com base no nome fornecido.
                     </p>
+
+                    <div class="parameters">
+                        <h4>Query Parameters (URL):</h4>
+                        <div class="param-item">
+                            <code>nome_arquivo</code> (string) - <strong>Obrigatório</strong>. O nome do arquivo PDF a ser baixado.
+                        </div>
+                        <p class="description" style="padding-left: 5px; margin-top: 5px;">
+                            Exemplo de URL: <code class="param-url">/relatorio?nome_arquivo=meu_relatorio.pdf</code>
+                        </p>
+                    </div>
                 </div>
                 
                 <div class="endpoint-card">
