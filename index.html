@@ -99,11 +99,6 @@
         .method.get {
             background-color: #2ecc71; /* Verde para GET */
         }
-        
-        /* Adicione mais se precisar:
-        .method.put { background-color: #f39c12; }
-        .method.delete { background-color: #e74c3c; }
-        */
 
         /* --- Caminho da Rota (Path) --- */
         .path {
@@ -117,7 +112,125 @@
         .description {
             font-size: 0.95em;
             color: #555;
-            padding-left: 5px; /* Alinha com o início do path */
+            padding-left: 5px;
+        }
+
+        /* --- Estilos para Parâmetros e Explicações --- */
+        .parameters,
+        .explanation-section {
+            margin-top: 25px;
+            padding-left: 5px;
+        }
+
+        .parameters h4,
+        .explanation-section h4 {
+            font-size: 1.1em;
+            color: #34495e;
+            margin-bottom: 10px;
+            font-weight: 600;
+            border-bottom: 1px solid #ecf0f1;
+            padding-bottom: 5px;
+        }
+        
+        .parameters h5 {
+            font-size: 1em;
+            color: #2c3e50;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .param-item {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.95em;
+            margin-bottom: 5px;
+        }
+        
+        .param-item code {
+            background-color: #ecf0f1;
+            padding: 3px 6px;
+            border-radius: 4px;
+            color: #c0392b; /* Vermelho escuro */
+            font-weight: 600;
+        }
+        
+        code.param-url {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            background-color: #fdfdfd;
+            border: 1px solid #ecf0f1;
+            color: #2c3e50;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+        
+        /* --- Estilos para Lista de Explicação --- */
+        .explanation-section p {
+            font-size: 0.95em;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .explanation-section ul {
+            list-style-type: none;
+            margin-left: 0;
+            padding-left: 0;
+            margin-bottom: 15px;
+        }
+
+        .explanation-section li {
+            font-size: 0.95em;
+            color: #333;
+            margin-bottom: 12px;
+            padding-left: 10px;
+        }
+
+        .explanation-section li strong {
+            color: #2c3e50;
+            font-weight: 600;
+            display: block; /* Título da categoria em linha própria */
+            margin-bottom: 5px;
+        }
+
+        .explanation-section li ul {
+            margin-top: 8px;
+            margin-bottom: 0;
+            padding-left: 20px; 
+            list-style-type: '— '; /* Marcador de traço */
+        }
+
+        .explanation-section li li {
+            margin-bottom: 6px;
+            padding-left: 5px;
+            font-size: 0.9em;
+        }
+
+        .explanation-section li li code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            background-color: #ecf0f1;
+            padding: 2px 5px;
+            border-radius: 4px;
+            color: #2980b9; /* Azul */
+            font-weight: 600;
+        }
+
+        /* --- Estilos para Blocos de Código/JSON --- */
+        .code-block {
+            background-color: #2c3e50; /* Azul escuro */
+            color: #ecf0f1; /* Cinza claro */
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 0.9em;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            overflow-x: auto; 
+            max-height: 350px;
+        }
+        
+        .code-block pre {
+            margin: 0;
+            white-space: pre-wrap; 
+            word-wrap: break-word;
         }
 
     </style>
@@ -150,8 +263,113 @@
                         <span class="path">/relatorio</span>
                     </div>
                     <p class="description">
-                        Gera e disponibiliza para download um relatório em PDF com base nos últimos dados de telemetria recebidos.
+                        Gera e disponibiliza para download um relatório em PDF (simples) com base nos últimos dados de telemetria recebidos.
                     </p>
+                </div>
+                
+                <div class="endpoint-card">
+                    <div class="endpoint-header">
+                        <span class="method post">POST</span>
+                        <span class="path">/orquestrador</span>
+                    </div>
+                    <p class="description">
+                        Orquestra a geração de um relatório PDF complexo e customizado com base em uma estrutura JSON enviada no body.
+                    </p>
+
+                    <div class="parameters">
+                        <h4>Inputs da Rota</h4>
+                        
+                        <h5>1. Query Parameter (URL)</h5>
+                        <div class="param-item">
+                            <code>nome_arquivo</code> (string) - <strong>Obrigatório</strong>.
+                        </div>
+                        <p class="description" style="padding-left: 5px; margin-bottom: 10px;">
+                            Define o nome do arquivo PDF a ser gerado.
+                            <br>
+                            Exemplo de URL: <code class="param-url">/orquestrador?nome_arquivo=meu_relatorio.pdf</code>
+                        </p>
+                
+                        <h5>2. Corpo da Requisição (JSON Body)</h5>
+                        <p class="description" style="padding-left: 5px; margin-bottom: 10px;">
+                            Define o conteúdo e a estrutura do relatório. Deve ser um JSON contendo a chave <code>"elementos"</code>, que é um array de "comandos" a serem executados em ordem.
+                        </p>
+                    </div>
+
+                    <div class="explanation-section">
+                        <h4>Detalhamento dos "Elementos" (JSON Body)</h4>
+                        <p>Cada objeto <code>{}</code> dentro do array <code>"elementos"</code> é uma instrução para o gerador de PDF. A ordem é fundamental.</p>
+                        
+                        <ul>
+                            <li>
+                                <strong>Estrutura do Documento:</strong>
+                                <ul>
+                                    <li><code>{"add_capa": {...}}</code>: Adiciona uma página de rosto.</li>
+                                    <li><code>{"secao": "..."}</code>: Cria um título de seção principal (ex: 1. Título).</li>
+                                    <li><code>{"subsecao": "..."}</code>: Cria um título de subseção (ex: 1.1. Título).</li>
+                                    <li><code>{"nova_pagina": null}</code>: Força uma quebra de página.</li>
+                                    <li><code>{"espaco": 15}</code>: Adiciona um espaço vertical (em mm).</li>
+                                </ul>
+                            </li>
+                            <li>
+                                <strong>Conteúdo de Texto:</strong>
+                                <ul>
+                                    <li><code>{"paragrafo": "..."}</code>: Adiciona um parágrafo de texto normal.</li>
+                                    <li><code>{"lista_numerada": [...]}</code>: Cria uma lista numerada.</li>
+                                    <li><code>{"lista_bullet": [...]}</code>: Cria uma lista com marcadores.</li>
+                                    <li><code>{"bloco_codigo": "..."}</code>: Adiciona um bloco de código formatado.</li>
+                                </ul>
+                            </li>
+                            <li>
+                                <strong>Conteúdo Visual e Dados:</strong>
+                                <ul>
+                                    <li><code>{"legenda_tabela": "..."}</code>: Define a legenda para a <strong>próxima</strong> tabela.</li>
+                                    <li><code>{"tabela_pandas": {...}}</code>: Cria uma tabela a partir dos dados.</li>
+                                    <li><code>{"legenda_figura": "..."}</code>: Define a legenda para a <strong>próxima</strong> imagem/gráfico.</li>
+                                    <li><code>{"imagem": {...}}</code>: Insere uma imagem (a partir de um caminho no servidor).</li>
+                                    <li><code>{"grafico_pandas": {...}}</code>: Gera e insere um gráfico dinamicamente.</li>
+                                </ul>
+                            </li>
+                        </ul>
+                    
+                        <h4>Exemplo de JSON Body (Estrutura Resumida)</h4>
+                        <div class="code-block">
+<pre><code>{
+  "elementos": [
+    {
+      "add_capa": {
+        "instituicao": "Minha Empresa",
+        "autor": "Relatórios API",
+        "titulo": "Relatório Técnico"
+      }
+    },
+    { "secao": "Introdução" },
+    { "paragrafo": "Texto do parágrafo aqui..." },
+    { "subsecao": "Análise de Dados" },
+    { "legenda_tabela": "Legenda da Tabela." },
+    {
+      "tabela_pandas": {
+        "data": [
+          {"Mês": "Outubro", "Vendas": 12000},
+          {"Mês": "Novembro", "Vendas": 15000}
+        ]
+      }
+    },
+    { "legenda_figura": "Legenda da Figura." },
+    {
+      "grafico_pandas": {
+        "data": [...],
+        "x_col": "Mês",
+        "y_col": "Vendas",
+        "tipo_grafico": "bar"
+      }
+    },
+    { "nova_pagina": null },
+    { "secao": "Conclusão" },
+    { "paragrafo": "Texto da conclusão." }
+  ]
+}</code></pre>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="endpoint-card">
