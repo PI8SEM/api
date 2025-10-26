@@ -134,7 +134,7 @@ class ReportGeneratorABNT:
         """
         try:
             pdf = SimpleDocTemplate(
-                f"{self.file_name}.pdf",
+                f"./reports/{self.file_name}.pdf",
                 pagesize=A4,
                 rightMargin=self.rightMargin,
                 leftMargin=self.leftMargin,

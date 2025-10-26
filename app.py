@@ -17,10 +17,8 @@ def receber_dados():
 
 @app.route("/relatorio", methods=["GET"])
 def relatorio():
-    with open("dados_telemetria.json", "r") as f:
-        dados = json.load(f)
-    caminho_pdf = gerar_pdf(dados)    
-    return send_file(caminho_pdf, as_attachment=True)
+    fileName = request.args.get("./reports/{fileName}")   
+    return send_file(fileName, as_attachment=True)
 
 @app.route("/orquestrador", methods=["POST"])
 def orquestrador():
