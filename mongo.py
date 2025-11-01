@@ -22,10 +22,25 @@ with open(pdf_path, 'rb') as pdf_file:
 print(f"Arquivo PDF carregado com sucesso. ID do arquivo no MongoDB: {pdf_id}")
 
 
+# Forma mais pratico de achar o arquivo, utiliza o nome do arquivo em vez de id
+def retrieve_file(file_name, output_path):
+    """Retrieves a file from MongoDB GridFS and saves it locally."""
+    file_data = fs.find_one({"filename": file_name})
+    if file_data:
+        with open(output_path, "wb") as output_file:
+            output_file.write(file_data.read())
+        print(f"File {file_name} retrieved successfully.")
+    else:
+        print(f"File {file_name} not found.")
+
+# Example usage
+retrieve_file("example.pdf", "retrieved_example.pdf")        
+
+#Metodo usado buscando o ID, menos pratico
 pdf = fs.get(pdf_id)
 
 # Salvando o arquivo recuperado no sistema local
 with open('recuperado_arquivo.pdf', 'wb') as f:
     f.write(pdf.read())
 
-print("Arquivo PDF recuperado com sucesso.")  
+print("Arquivo PDF recuperado com sucesso.")
