@@ -333,17 +333,20 @@ class ReportGeneratorABNT:
         self.story.append(tbl)
 
     def grafico_pandas(self, df, x_col, y_col, titulo_grafico, 
-                       tipo_grafico='bar', largura_mm=160, altura_mm=100):
+                   tipo_grafico='bar', largura_mm=160, altura_mm=100):
         """Gera um gráfico (Centralizado) e o adiciona ao relatório."""
-        
         try:
-            df_plot = df[df[x_col].str.lower() != 'total'].copy()
-            df_plot[y_col] = pd.to_numeric(df_plot[y_col], errors='coerce')
-            df_plot = df_plot.dropna(subset=[y_col])
-        except AttributeError: 
             df_plot = df.copy()
-            df_plot[y_col] = pd.to_numeric(df_plot[y_col], errors='coerce')
-            df_plot = df_plot.dropna(subset=[y_col])
+            df_plot[x_col] = pd.to_datetime(df_plot[x_col], errors='coerce')
+
+            # Converte cada coluna de y_col (pode ser uma lista)
+            for col in (y_col if isinstance(y_col, list) else [y_col]):
+                df_plot[col] = pd.to_numeric(df_plot[col], errors='coerce')
+
+            df_plot = df_plot.dropna(subset=[x_col])
+        except Exception as e:
+            print(f"Erro ao preparar dados do gráfico '{titulo_grafico}': {e}")
+            return
 
         if df_plot.empty:
             print(f"Aviso: Não foi possível gerar o gráfico '{titulo_grafico}' (dados vazios).")
@@ -353,30 +356,37 @@ class ReportGeneratorABNT:
         if largura_mm > largura_max_mm:
             largura_mm = largura_max_mm
 
-        fig, ax = plt.subplots(figsize=(largura_mm / 25.4, altura_mm / 25.4)) 
+        fig, ax = plt.subplots(figsize=(largura_mm / 25.4, altura_mm / 25.4))
         try:
             plt.rcParams['font.family'] = 'Times New Roman'
         except:
-            print("Aviso: Fonte 'Times New Roman' não encontrada para Matplotlib. Usando padrão.")
             plt.rcParams['font.family'] = 'sans-serif'
-            
         plt.rcParams['font.size'] = 10
 
-        df_plot.plot(kind=tipo_grafico, x=x_col, y=y_col, ax=ax, legend=False)
+        # ✅ Plot múltiplas colunas
+        if isinstance(y_col, list):
+            for col in y_col:
+                ax.plot(df_plot[x_col], df_plot[col], label=col)
+            ax.legend()
+        else:
+            ax.plot(df_plot[x_col], df_plot[y_col], label=y_col)
+            ax.legend()
+
         ax.set_title(titulo_grafico, fontsize=12, fontweight='bold')
         ax.set_xlabel(x_col, fontsize=10)
-        ax.set_ylabel(y_col, fontsize=10)
-        ax.tick_params(axis='x', rotation=45) 
-        plt.tight_layout() 
-        
+        ax.set_ylabel("Valor", fontsize=10)
+        ax.tick_params(axis='x', rotation=45)
+        plt.tight_layout()
+
         img_buffer = io.BytesIO()
         plt.savefig(img_buffer, format='PNG', dpi=300)
         img_buffer.seek(0)
-        plt.close(fig) 
-        
+        plt.close(fig)
+
         img = Image(img_buffer, width=largura_mm*mm, height=altura_mm*mm)
         img.hAlign = 'CENTER'
         self.story.append(img)
+
 
 
 # --- Funções de Exemplo (Externas à classe) ---
