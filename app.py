@@ -1,8 +1,12 @@
-from flask import Flask, request, send_file, send_from_directory
+from flask import Flask, request, send_file, send_from_directory, jsonify
 from flask_cors import CORS
 import json
+
 from gerar_relatorio import gerar_pdf
 from v2_reportGenerate import orquestrar_relatorio
+from agente import callAgent
+from get_api_data import get_api_data
+from analise_tensao_rms import analisar_dados_json
 import os
 
 app = Flask(__name__)
@@ -28,6 +32,49 @@ def orquestrador():
     fileName = request.args.get("nome_arquivo")
     orquestrar_relatorio(data, fileName)
     return "200"
+
+# Definição da rota da API
+@app.route("/agente", methods=["POST"])
+def agente():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Nenhum dado JSON recebido"}), 400
+
+    print(f"Dados recebidos no endpoint /agente: {data}")
+
+    # Chama a função importada para encaminhar os dados ao webhook
+    webhook_response, error_message, status_code = callAgent(data)
+
+    if error_message:
+        # Se callAgent retornou um erro, informa quem chamou
+        return jsonify({"error": "Falha ao processar agente", "details": error_message}), status_code
+
+    # Se deu tudo certo, retorna a resposta do webhook
+    try:
+        # Tenta retornar o JSON da resposta do webhook
+        return jsonify(webhook_response.json()), status_code
+    except json.JSONDecodeError:  # <-- 2. Capture a exceção padrão
+        # Se o webhook não retornou JSON, retorna o texto
+        return webhook_response.text, status_code
+
+@app.route("/get_api_data", methods=["GET"])
+def get_api_data_route():
+    """
+    Rota do Flask que chama a função get_api_data 
+    e retorna os dados como uma resposta JSON.
+    """
+    # Chama a função importada
+    data, status_code = get_api_data()
+    
+    # Usa jsonify para formatar a resposta corretamente
+    return jsonify(data), status_code
+
+
+@app.route("/analise_tensao_rms", methods=["POST"])
+def analise_tensao_rms():
+    data = request.get_json()
+    resultado = analisar_dados_json(data)
+    return jsonify(resultado), 200
 
 @app.route("/")
 def index():
