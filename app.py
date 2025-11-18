@@ -1,13 +1,19 @@
 from flask import Flask, request, send_file, send_from_directory, jsonify
 from flask_cors import CORS
+
 import json
+import os
 
 from gerar_relatorio import gerar_pdf
 from v2_reportGenerate import orquestrar_relatorio
 from agente import callAgent
 from get_api_data import get_api_data
-from analise_tensao_rms import analisar_dados_json
-import os
+
+
+from analise_tensao_rms import analisar_dados_json as analisar_tensao_rms
+from analise_corrente_rms import analisar_corrente_json as analisar_corrente_rms
+from analise_potencia_ativa_reativa import analisar_potencia_json as analisar_potencia_ativa_reativa
+from analise_demanda_perfil import analisar_demanda_json as analisar_demanda_perfil
 
 app = Flask(__name__)
 CORS(app) 
@@ -73,8 +79,26 @@ def get_api_data_route():
 @app.route("/analise_tensao_rms", methods=["POST"])
 def analise_tensao_rms():
     data = request.get_json()
-    resultado = analisar_dados_json(data)
-    return jsonify(resultado), 200
+    resultado = analisar_tensao_rms(data)
+    return resultado
+
+@app.route("/analise_corrente_rms", methods=["POST"])
+def analise_corrente_rms():
+    data = request.get_json()
+    resultado = analisar_corrente_rms(data)
+    return resultado
+
+@app.route("/analise_potencia_ativa_reativa", methods=["POST"])
+def analise_potencia_ativa_reativa():
+    data = request.get_json()
+    resultado = analisar_potencia_ativa_reativa(data)
+    return resultado
+
+@app.route("/analise_demanda_perfil", methods=["POST"])
+def analise_demanda_perfil():
+    data = request.get_json()
+    resultado = analisar_demanda_perfil(data)
+    return resultado
 
 @app.route("/")
 def index():

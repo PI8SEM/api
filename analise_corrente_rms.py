@@ -1,44 +1,35 @@
-# analise_tensao_rms.py
+# analise_corrente_rms.py
 """
-Versão restrita e corrigida do analisador: apenas análises relacionadas à Tensão RMS.
+Analisador de Corrente RMS (versão enxuta, focada em tendências de corrente).
 
 Exporta a função:
-    analisar_dados_json(records, tol_perc=0.10, z_thr=3.0)
+    analisar_corrente_json(records, tol_perc=0.10, z_thr=3.0)
 
-Saída contém somente dados derivados relacionados a tensões:
-- meta (período, registros, nível nominal detectado, tolerância, contagem de timestamps parseados)
-- estatísticas por fase (tensão_1/2/3)
-- tendências lineares por fase
-- gráfico temporal (apenas tensões por registro, datas em ISO8601 Z)
-- anomalias por fase (índices via z-score)
-- eventos de subtensão/sobretensão por fase
+Entrada aceita:
+- lista de {"dadoEnergia": {...}}
+- lista de {...} (inner objects)
+- um único {...} (inner object)
+
+Saída (apenas dados derivados relacionados a corrente):
+- meta (registros, periodo_inicio/fim, nivel_nominal_detectado, tolerancia, timestamps_parsed/invalid)
+- tabela_estatisticas (média/std/min/max/amostras por fase)
+- grafico_corrente_time_series (série temporal com correntes por registro)
+- tendencias_lin (slope + intercept por fase)
+- anomalias_indices (índices por fase via z-score)
+- events_out_of_limit (subcorrente/sobrecorrente por fase — somente se for possível detectar nível nominal)
 """
-
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-DATE_FMT = "%d/%m/%Y %H:%M:%S"
-POSSIVEIS_NIVEIS = [110.0, 220.0, 380.0]
-
-
-def parse_dt(s: Optional[str]) -> Optional[datetime]:
-    """Mantido para compatibilidade caso precise parse manual em algum lugar."""
-    if s is None:
-        return None
-    try:
-        return datetime.strptime(s, DATE_FMT)
-    except Exception:
-        return None
-
+DATE_OUT_FMT = "%d/%m/%Y %H:%M"  # formato de saída requisitado pelo usuário
+# NOTA: não definimos níveis nominais fixos para corrente; detectamos pela mediana das amostras
+# Se desejar, pode passar uma lista de níveis nominais como argumento no futuro.
 
 def _normalizar_input(records: Union[List[Any], Dict[str, Any], None]) -> List[Dict[str, Any]]:
-    """
-    Normaliza entrada para lista de dicionários internos (conteúdo de dadoEnergia).
-    Não altera nem retorna os dados originais; apenas converte para uso interno.
-    """
+    """Normaliza entrada para lista de dicionários internos (conteúdo de dadoEnergia)."""
     if records is None:
         return []
     if isinstance(records, dict):
@@ -46,7 +37,7 @@ def _normalizar_input(records: Union[List[Any], Dict[str, Any], None]) -> List[D
             return [records['dadoEnergia']]
         return [records]
     if isinstance(records, list):
-        normalized = []
+        normalized: List[Dict[str, Any]] = []
         for item in records:
             if not isinstance(item, dict):
                 continue
@@ -57,54 +48,61 @@ def _normalizar_input(records: Union[List[Any], Dict[str, Any], None]) -> List[D
         return normalized
     return []
 
+def parse_datetime_series(df: pd.DataFrame, col_name: str = 'data_inc') -> pd.Series:
+    """
+    Faz parsing robusto da coluna de datas (aceita ISO8601 com Z, etc.)
+    Retorna uma Series datetime64[ns] sem tzinfo (UTC).
+    """
+    if col_name not in df.columns:
+        df[col_name] = None
+    dt = pd.to_datetime(df[col_name], utc=True, errors='coerce')
+    if pd.api.types.is_datetime64tz_dtype(dt):
+        dt = dt.dt.tz_convert('UTC').dt.tz_localize(None)
+    return dt
 
-def escolher_nivel_nominal(df: pd.DataFrame, fases=('tensao_1', 'tensao_2', 'tensao_3')) -> Optional[float]:
+def escolher_nivel_nominal_por_mediana(df: pd.DataFrame, fases=('corrente_1', 'corrente_2', 'corrente_3')) -> Optional[float]:
+    """
+    Detecta um nível nominal de corrente usando a mediana das amostras disponíveis.
+    Retorna None se não houver amostras válidas.
+    """
     vals = []
     for f in fases:
         if f in df.columns:
             vals.extend(df[f].dropna().tolist())
     if not vals:
         return None
-    med = float(pd.Series(vals).median())
-    escolhido = min(POSSIVEIS_NIVEIS, key=lambda x: abs(x - med))
-    return float(escolhido)
+    return float(pd.Series(vals).median())
 
-
-def estatisticas_por_fase(df: pd.DataFrame, fases=('tensao_1', 'tensao_2', 'tensao_3')) -> List[Dict[str, Any]]:
+def estatisticas_por_fase(df: pd.DataFrame, fases=('corrente_1', 'corrente_2', 'corrente_3')) -> List[Dict[str, Any]]:
     tabela = []
     for f in fases:
         if f not in df.columns:
-            tabela.append({'Fase': f, 'Média (V)': None, 'Desvio Padrão (V)': None,
-                           'Mín (V)': None, 'Máx (V)': None, 'Amostras': 0})
+            tabela.append({'Fase': f, 'Média (A)': None, 'Desvio Padrão (A)': None,
+                           'Mín (A)': None, 'Máx (A)': None, 'Amostras': 0})
             continue
         s = df[f].dropna()
         if s.empty:
-            tabela.append({'Fase': f, 'Média (V)': None, 'Desvio Padrão (V)': None,
-                           'Mín (V)': None, 'Máx (V)': None, 'Amostras': 0})
+            tabela.append({'Fase': f, 'Média (A)': None, 'Desvio Padrão (A)': None,
+                           'Mín (A)': None, 'Máx (A)': None, 'Amostras': 0})
             continue
         tabela.append({
             'Fase': f,
-            'Média (V)': float(s.mean()),
-            'Desvio Padrão (V)': float(s.std()),
-            'Mín (V)': float(s.min()),
-            'Máx (V)': float(s.max()),
+            'Média (A)': float(s.mean()),
+            'Desvio Padrão (A)': float(s.std()),
+            'Mín (A)': float(s.min()),
+            'Máx (A)': float(s.max()),
             'Amostras': int(s.count())
         })
     return tabela
 
-
 def tendencia_linear_simples(times: pd.Series, series: pd.Series) -> Dict[str, Optional[float]]:
     """
     Ajuste linear simples com verificações robustas para evitar falhas numéricas.
-
-    Retorna None para slope/intercept quando não for possível obter um ajuste
-    estável (ex.: menos de 2 pontos válidos, xs sem variação, dados não-finitos,
-    ou falha numérica na decomposição SVD).
+    Retorna None para slope/intercept quando não for possível obter um ajuste estável.
     """
     mask = (~times.isna()) & (~series.isna())
     if mask.sum() < 2:
         return {'slope_per_s': None, 'intercept': None}
-
     xs = (times[mask] - times[mask].min()).dt.total_seconds().astype(float)
     ys = series[mask].astype(float)
 
@@ -127,7 +125,6 @@ def tendencia_linear_simples(times: pd.Series, series: pd.Series) -> Dict[str, O
     except Exception:
         return {'slope_per_s': None, 'intercept': None}
 
-
 def detectar_anomalias_zscore(series: pd.Series, z_thr: float = 3.0) -> List[int]:
     s = series.dropna()
     if s.empty:
@@ -139,23 +136,21 @@ def detectar_anomalias_zscore(series: pd.Series, z_thr: float = 3.0) -> List[int
     zs = (series - mu) / sigma
     return [int(i) for i in zs[zs.abs() > z_thr].index.tolist()]
 
-
 def outside_limits(val: Optional[float], nominal: float, tol_perc: float) -> Optional[str]:
     if val is None or pd.isna(val):
         return None
     low = nominal * (1 - tol_perc)
     high = nominal * (1 + tol_perc)
     if val < low:
-        return 'subtensão'
+        return 'subcorrente'
     if val > high:
-        return 'sobretensão'
+        return 'sobrecorrente'
     return 'ok'
-
 
 def _to_native(o: Any) -> Any:
     """
-    Converte recursivamente objetos numpy/pandas/datetime para tipos nativos Python.
-    Usado apenas na saída para garantir JSON válido sem dependências externas.
+    Converte recursivamente numpy/pandas/datetime para tipos nativos Python.
+    Serializa datetimes no formato dd/mm/aaaa hh:mm.
     """
     if isinstance(o, dict):
         return {str(k): _to_native(v) for k, v in o.items()}
@@ -175,13 +170,11 @@ def _to_native(o: Any) -> Any:
         pass
     if isinstance(o, (pd.Timestamp, datetime)):
         try:
-            # assumimos que datetimes são UTC (timezone-localized removido previamente)
-            # retornamos ISO 8601 com Z para compatibilidade com APIs modernas
             if isinstance(o, pd.Timestamp):
                 o2 = o.to_pydatetime()
             else:
                 o2 = o
-            return o2.strftime("%d/%m/%Y %H:%M")
+            return o2.strftime(DATE_OUT_FMT)
         except Exception:
             return str(o)
     if isinstance(o, (int, float, str, bool)) or o is None:
@@ -190,28 +183,21 @@ def _to_native(o: Any) -> Any:
         return o
     return str(o)
 
-
-def analyze_records(records: Union[List[Any], Dict[str, Any], None],
-                    tol_perc: float = 0.10,
-                    z_thr: float = 3.0) -> Dict[str, Any]:
+def analyze_records_corrente(records: Union[List[Any], Dict[str, Any], None],
+                             tol_perc: float = 0.10,
+                             z_thr: float = 3.0) -> Dict[str, Any]:
     """
-    Produz apenas resultados derivados relacionados a tensões; NÃO inclui dados de entrada brutos.
+    Produz resultados derivados relacionados a Corrente RMS; NÃO inclui dados de entrada brutos.
     """
-    # normaliza para lista interna (uso apenas local)
     rows = _normalizar_input(records)
-    # dataframe apenas para cálculo interno
     df = pd.DataFrame(rows)
 
-    # garante coluna de data para evitar KeyError
+    # garante coluna de data padrão 'data_inc'
     if 'data_inc' not in df.columns:
         df['data_inc'] = None
 
-    # robust parsing: aceita ISO8601 (com Z), timestamps numéricas e vários formatos
-    df['data_inc_dt'] = pd.to_datetime(df['data_inc'], utc=True, errors='coerce')
-    # se for timezone-aware, converte para UTC e remove info de timezone para simplificar formatos de saída
-    if pd.api.types.is_datetime64tz_dtype(df['data_inc_dt']):
-        df['data_inc_dt'] = df['data_inc_dt'].dt.tz_convert('UTC').dt.tz_localize(None)
-    # ordena pelos datetimes parseados
+    # parse robusto de datas (aceita ISO8601 com Z, microssegundos, etc.)
+    df['data_inc_dt'] = parse_datetime_series(df, 'data_inc')
     df = df.sort_values('data_inc_dt').reset_index(drop=True)
 
     # converter colunas numéricas para facilitar cálculos
@@ -219,10 +205,9 @@ def analyze_records(records: Union[List[Any], Dict[str, Any], None],
         if c not in ['data_inc', 'data_inc_dt', 'id_consumidor', 'id_equipamento']:
             df[c] = pd.to_numeric(df[c], errors='coerce')
 
-    fases = ['tensao_1', 'tensao_2', 'tensao_3']
+    fases = ['corrente_1', 'corrente_2', 'corrente_3']
 
-    # cálculos principais (apenas resultados derivados relacionados a tensões)
-    nivel_detectado = escolher_nivel_nominal(df, fases)
+    nivel_detectado = escolher_nivel_nominal_por_mediana(df, fases)
     tabela = estatisticas_por_fase(df, fases)
 
     tendencias = {}
@@ -230,26 +215,25 @@ def analyze_records(records: Union[List[Any], Dict[str, Any], None],
         series = df.get(f, pd.Series(dtype=float))
         tendencias[f] = tendencia_linear_simples(df['data_inc_dt'], series)
 
-    # série temporal resumida (cada ponto é um registro analisado — apenas tensões)
+    # série temporal resumida (apenas correntes)
     grafico = []
     for _, r in df.iterrows():
         dt = r['data_inc_dt']
         if pd.isna(dt):
             dt_out = None
         else:
-            # dt é timezone-naive representando UTC; usar ISO 8601 com Z
             try:
-                dt_out = dt.strftime("%d/%m/%Y %H:%M")
+                dt_out = dt.strftime(DATE_OUT_FMT)
             except Exception:
                 dt_out = None
         grafico.append({
             'data_inc': dt_out,
-            'tensao_1': None if pd.isna(r.get('tensao_1')) else float(r.get('tensao_1')),
-            'tensao_2': None if pd.isna(r.get('tensao_2')) else float(r.get('tensao_2')),
-            'tensao_3': None if pd.isna(r.get('tensao_3')) else float(r.get('tensao_3'))
+            'corrente_1': None if pd.isna(r.get('corrente_1')) else float(r.get('corrente_1')),
+            'corrente_2': None if pd.isna(r.get('corrente_2')) else float(r.get('corrente_2')),
+            'corrente_3': None if pd.isna(r.get('corrente_3')) else float(r.get('corrente_3'))
         })
 
-    # eventos de subtensão/sobretensão — resultados derivados (apenas tensões)
+    # eventos de sub/sobrecorrente (apenas se nivel_detectado for detectado)
     events = []
     if nivel_detectado is not None:
         for _, r in df.iterrows():
@@ -258,12 +242,12 @@ def analyze_records(records: Union[List[Any], Dict[str, Any], None],
                 dt_out = None
             else:
                 try:
-                    dt_out = dt.strftime("%d/%m/%Y %H:%M")
+                    dt_out = dt.strftime(DATE_OUT_FMT)
                 except Exception:
                     dt_out = None
             for f in fases:
                 status = outside_limits(r.get(f), nivel_detectado, tol_perc)
-                if status in ('subtensão', 'sobretensão'):
+                if status in ('subcorrente', 'sobrecorrente'):
                     events.append({
                         'data_inc': dt_out,
                         'fase': f,
@@ -276,29 +260,27 @@ def analyze_records(records: Union[List[Any], Dict[str, Any], None],
     result = {
         'meta': {
             'registros': int(df.shape[0]),
-            'periodo_inicio': df['data_inc_dt'].min().strftime("%d/%m/%Y %H:%M") if not pd.isna(df['data_inc_dt'].min()) else None,
-            'periodo_fim': df['data_inc_dt'].max().strftime("%d/%m/%Y %H:%M") if not pd.isna(df['data_inc_dt'].max()) else None,
+            'periodo_inicio': df['data_inc_dt'].min().strftime(DATE_OUT_FMT) if not pd.isna(df['data_inc_dt'].min()) else None,
+            'periodo_fim': df['data_inc_dt'].max().strftime(DATE_OUT_FMT) if not pd.isna(df['data_inc_dt'].max()) else None,
             'nivel_nominal_detectado': nivel_detectado,
             'tolerancia_perc': tol_perc,
             'timestamps_parsed': int(df['data_inc_dt'].notna().sum()),
             'timestamps_invalid': int(df.shape[0] - df['data_inc_dt'].notna().sum())
         },
         'tabela_estatisticas': {'data': tabela},
-        'grafico_tensao_time_series': {'data': grafico},
+        'grafico_corrente_time_series': {'data': grafico},
         'tendencias_lin': tendencias,
         'anomalias_indices': anomalias,
         'events_out_of_limit': events
     }
 
-    # converter resultado para tipos nativos Python antes de retornar
     return _to_native(result)
 
-
-def analisar_dados_json(records: Union[List[Any], Dict[str, Any], None],
-                        tol_perc: float = 0.10,
-                        z_thr: float = 3.0) -> Dict[str, Any]:
+def analisar_corrente_json(records: Union[List[Any], Dict[str, Any], None],
+                           tol_perc: float = 0.10,
+                           z_thr: float = 3.0) -> Dict[str, Any]:
     """
     Função pública: chame com a lista de registros ou com um único registro.
     Retorna somente tipos nativos Python, prontos para json.dumps/Flask.
     """
-    return analyze_records(records, tol_perc=tol_perc, z_thr=z_thr)
+    return analyze_records_corrente(records, tol_perc=tol_perc, z_thr=z_thr)
