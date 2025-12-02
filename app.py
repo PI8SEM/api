@@ -100,6 +100,15 @@ def analise_demanda_perfil():
     resultado = analisar_demanda_perfil(data)
     return resultado
 
+@app.route("/listar-relatorios", methods=["GET"])
+def listar_relatorios():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    reports_dir = os.path.join(base_dir, "reports")
+
+    arquivos = [f for f in os.listdir(reports_dir) if os.path.isfile(os.path.join(reports_dir, f))]
+
+    return {"arquivos": arquivos}
+
 @app.route("/")
 def index():
     # Serve the local index.html for quick testing
